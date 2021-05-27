@@ -2,6 +2,7 @@ package blackscholes
 
 import (
 	"math"
+	"strings"
 )
 
 const MaxExecTimes = 100
@@ -31,7 +32,7 @@ type BSM struct {
 
 func NewBS(direction string, S float64, X float64, T float64, r float64, op float64, opEpsilon float64, ivMax float64, ivMin float64) *BSM {
 	bsm := BSM{
-		D:         direction,
+		D:         strings.ToLower(direction),
 		S:         S,
 		X:         X,
 		T:         T,
