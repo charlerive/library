@@ -46,9 +46,29 @@ func NewBS(direction string, S float64, X float64, T float64, r float64, op floa
 	return &bsm
 }
 
+func NewBSWithIv(direction string, S float64, X float64, T float64, r float64, op float64, opEpsilon float64, ivMax float64, ivMin float64, iv float64) *BSM {
+	bsm := BSM{
+		D:         strings.ToLower(direction),
+		S:         S,
+		X:         X,
+		T:         T,
+		R:         r,
+		Op:        op,
+		OpEpsilon: opEpsilon,
+		Iv:        iv,
+		IvMax:     ivMax,
+		IvMin:     ivMin,
+	}
+	bsm.init()
+	return &bsm
+}
+
 func (bsm *BSM) init() {
 	// 计算波动率
-	bsm.ImVolBisection()
+	if bsm.Iv == 0 {
+		bsm.ImVolBisection()
+	}
+
 	// 计算d1
 	bsm.calcD1()
 	// 计算d2
