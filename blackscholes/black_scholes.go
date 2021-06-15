@@ -147,7 +147,7 @@ func (bsm *BSM) GetOptionPriceFromIv(iv float64) (optionPrice float64) {
 }
 
 func (bsm *BSM) calcD1() {
-	bsm.D1 = (math.Log(bsm.S/bsm.X) + (bsm.R+math.Pow(bsm.Iv, 2)/2)*bsm.T) / (bsm.Iv * math.Sqrt(bsm.T))
+	bsm.D1 = (math.Log(bsm.S/bsm.X) + (bsm.R+power(bsm.Iv, 2)/2)*bsm.T) / (bsm.Iv * math.Sqrt(bsm.T))
 }
 
 func (bsm *BSM) calcD2() {
@@ -155,7 +155,7 @@ func (bsm *BSM) calcD2() {
 }
 
 func (bsm *BSM) calcNd1() {
-	bsm.Nd1 = 1 / math.Sqrt(2*math.Pi) * math.Exp(-(math.Pow(bsm.D1, 2) / 2))
+	bsm.Nd1 = 1 / math.Sqrt(2*math.Pi) * math.Exp(-(power(bsm.D1, 2) / 2))
 }
 
 func (bsm *BSM) calcDelta() {
@@ -200,10 +200,22 @@ func Cdf(x float64) float64 {
 	)
 	l := math.Abs(x)
 	k := 1 / (1 + 0.2316419*l)
-	res = 1 - 1/math.Sqrt(2*math.Pi)*math.Exp(-math.Pow(l, 2)/2)*(a[0]*k+a[1]*math.Pow(k, 2)+a[2]*math.Pow(k, 3)+a[3]*math.Pow(k, 4)+a[4]*math.Pow(k, 5))
+	res = 1 - 1/math.Sqrt(2*math.Pi)*math.Exp(-power(l, 2)/2)*(a[0]*k+a[1]*power(k, 2)+a[2]*power(k, 3)+a[3]*power(k, 4)+a[4]*power(k, 5))
 
 	if x < 0 {
 		res = 1 - res
 	}
 	return res
+}
+
+func power(x float64, n int) float64 {
+	ans := 1.0
+	for n != 0 {
+		if n%2 == 1 {
+			ans *= x
+		}
+		x *= x
+		n /= 2
+	}
+	return ans
 }
