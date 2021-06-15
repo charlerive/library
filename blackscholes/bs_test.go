@@ -6,9 +6,10 @@ import "testing"
  * goos: windows
  * goarch: amd64
  * pkg: github.com/charlerive/library/blackscholes
- * BenchmarkRpc
- * BenchmarkRpc-12           261565              4335 ns/op
+ * BenchmarkRpc-12           706713              1706 ns/op             160 B/op          1 allocs/op
+ * BenchmarkBs-12           4471878               268 ns/op             160 B/op          1 allocs/op
  * PASS
+ * ok      github.com/charlerive/library/blackscholes      3.199s
  */
 func BenchmarkRpc(b *testing.B) {
 	b.ResetTimer()
