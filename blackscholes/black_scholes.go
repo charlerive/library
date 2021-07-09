@@ -5,7 +5,9 @@ import (
 	"strings"
 )
 
-const MaxExecTimes = 100
+const (
+	MaxExecTimes = 100
+)
 
 // Black–Scholes model
 // see wiki: https://en.wikipedia.org/wiki/Black%E2%80%93Scholes_model
@@ -28,6 +30,10 @@ type BSM struct {
 	Vega      float64 `json:"vega"`          // 希腊值vega, 期权价格对隐含波动率的敏感度
 	Theta     float64 `json:"theta"`         // 希腊值theta, 期权价格对剩余期限的敏感度
 	Rho       float64 `json:"rho"`           // 希腊值rho
+
+	// 助力参数
+	ExtractT float64 `json:"_"` // T开方
+	XRTCdfD2 float64 `json:"_"` // 助力参数
 }
 
 func NewBS(direction string, S float64, X float64, T float64, r float64, op float64, opEpsilon float64, ivMax float64, ivMin float64) *BSM {
@@ -41,6 +47,7 @@ func NewBS(direction string, S float64, X float64, T float64, r float64, op floa
 		OpEpsilon: opEpsilon,
 		IvMax:     ivMax,
 		IvMin:     ivMin,
+		ExtractT:  math.Sqrt(T),
 	}
 	bsm.init()
 	return &bsm
@@ -58,6 +65,7 @@ func NewBSWithIv(direction string, S float64, X float64, T float64, r float64, o
 		Iv:        iv,
 		IvMax:     ivMax,
 		IvMin:     ivMin,
+		ExtractT:  math.Sqrt(T),
 	}
 	bsm.init()
 	return &bsm
@@ -147,15 +155,15 @@ func (bsm *BSM) GetOptionPriceFromIv(iv float64) (optionPrice float64) {
 }
 
 func (bsm *BSM) calcD1() {
-	bsm.D1 = (math.Log(bsm.S/bsm.X) + (bsm.R+power(bsm.Iv, 2)/2)*bsm.T) / (bsm.Iv * math.Sqrt(bsm.T))
+	bsm.D1 = (math.Log(bsm.S/bsm.X) + (bsm.R+bsm.Iv*bsm.Iv/2)*bsm.T) / (bsm.Iv * bsm.ExtractT)
 }
 
 func (bsm *BSM) calcD2() {
-	bsm.D2 = bsm.D1 - bsm.Iv*math.Sqrt(bsm.T)
+	bsm.D2 = bsm.D1 - bsm.Iv*bsm.ExtractT
 }
 
 func (bsm *BSM) calcNd1() {
-	bsm.Nd1 = 1 / math.Sqrt(2*math.Pi) * math.Exp(-(power(bsm.D1, 2) / 2))
+	bsm.Nd1 = 1 / math.Sqrt(2*math.Pi) * math.Exp(-(bsm.D1 * bsm.D1 / 2))
 }
 
 func (bsm *BSM) calcDelta() {
@@ -167,26 +175,32 @@ func (bsm *BSM) calcDelta() {
 }
 
 func (bsm *BSM) calcGamma() {
-	bsm.Gamma = 1 / (bsm.S * bsm.Iv * math.Sqrt(bsm.T)) * bsm.Nd1
+	bsm.Gamma = 1 / (bsm.S * bsm.Iv * bsm.ExtractT) * bsm.Nd1
 }
 
 func (bsm *BSM) calcVega() {
-	bsm.Vega = bsm.S * math.Sqrt(bsm.T) * bsm.Nd1 / 100
+	bsm.Vega = bsm.S * bsm.ExtractT * bsm.Nd1 / 100
 }
 
 func (bsm *BSM) calcTheta() {
 	if bsm.D == "c" {
-		bsm.Theta = (-bsm.S*bsm.Iv/(2*math.Sqrt(bsm.T))*bsm.Nd1 - bsm.R*bsm.X*math.Exp(-bsm.R*bsm.T)*Cdf(bsm.D2)) / 365
+		//bsm.Theta = (-bsm.S*bsm.Iv/(2*bsm.ExtractT)*bsm.Nd1 - bsm.R*bsm.X*math.Exp(-bsm.R*bsm.T)*Cdf(bsm.D2)) / 365
+		bsm.XRTCdfD2 = bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(bsm.D2)
+		bsm.Theta = (-bsm.S*bsm.Iv/(2*bsm.ExtractT)*bsm.Nd1 - bsm.R*bsm.XRTCdfD2) / 365
 	} else if bsm.D == "p" {
-		bsm.Theta = (-bsm.S*bsm.Iv/(2*math.Sqrt(bsm.T))*bsm.Nd1 + bsm.R*bsm.X*math.Exp(-bsm.R*bsm.T)*Cdf(-bsm.D2)) / 365
+		//bsm.Theta = (-bsm.S*bsm.Iv/(2*bsm.ExtractT)*bsm.Nd1 + bsm.R*bsm.X*math.Exp(-bsm.R*bsm.T)*Cdf(-bsm.D2)) / 365
+		bsm.XRTCdfD2 = bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(-bsm.D2)
+		bsm.Theta = (-bsm.S*bsm.Iv/(2*bsm.ExtractT)*bsm.Nd1 + bsm.R*bsm.XRTCdfD2) / 365
 	}
 }
 
 func (bsm *BSM) calcRho() {
 	if bsm.D == "c" {
-		bsm.Rho = bsm.T * bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(bsm.D2) / 100
+		// bsm.Rho = bsm.T * bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(bsm.D2) / 100
+		bsm.Rho = bsm.T * bsm.XRTCdfD2 / 100
 	} else if bsm.D == "p" {
-		bsm.Rho = -bsm.T * bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(-bsm.D2) / 100
+		// bsm.Rho = -bsm.T * bsm.X * math.Exp(-bsm.R*bsm.T) * Cdf(-bsm.D2) / 100
+		bsm.Rho = -bsm.T * bsm.XRTCdfD2 / 100
 	}
 }
 
@@ -194,28 +208,5 @@ func (bsm *BSM) calcRho() {
  * cumulative normal distribution function
  */
 func Cdf(x float64) float64 {
-	a := []float64{0.31938153, -0.356563782, 1.781477937, -1.821255978, 1.330274429}
-	var (
-		res float64
-	)
-	l := math.Abs(x)
-	k := 1 / (1 + 0.2316419*l)
-	res = 1 - 1/math.Sqrt(2*math.Pi)*math.Exp(-power(l, 2)/2)*(a[0]*k+a[1]*power(k, 2)+a[2]*power(k, 3)+a[3]*power(k, 4)+a[4]*power(k, 5))
-
-	if x < 0 {
-		res = 1 - res
-	}
-	return res
-}
-
-func power(x float64, n int) float64 {
-	ans := 1.0
-	for n != 0 {
-		if n%2 == 1 {
-			ans *= x
-		}
-		x *= x
-		n /= 2
-	}
-	return ans
+	return math.Erfc(-(x-0)/(1*math.Sqrt2)) / 2
 }
