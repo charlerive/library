@@ -209,4 +209,16 @@ func (bsm *BSM) calcRho() {
  */
 func Cdf(x float64) float64 {
 	return math.Erfc(-(x-0)/(1*math.Sqrt2)) / 2
+	/*a := []float64{0.31938153, -0.356563782, 1.781477937, -1.821255978, 1.330274429}
+	var (
+		res float64
+	)
+	l := math.Abs(x)
+	k := 1 / (1 + 0.2316419*l)
+	res = 1 - 1/math.Sqrt(2*math.Pi)*math.Exp(-l*l/2)*(a[0]*k+a[1]*k*k+a[2]*k*k*k+a[3]*k*k*k*k+a[4]*k*k*k*k*k)
+
+	if x < 0 {
+		res = 1 - res
+	}
+	return res*/
 }
