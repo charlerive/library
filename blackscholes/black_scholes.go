@@ -144,6 +144,7 @@ func (bsm *BSM) ImVolBisection() {
 // 通过隐含波动率找到对应的期权报价
 func (bsm *BSM) GetOptionPriceFromIv(iv float64) (optionPrice float64) {
 	bsm.Iv = iv
+	bsm.ExtractT = math.Sqrt(bsm.T)
 	bsm.calcD1()
 	bsm.calcD2()
 	if bsm.D == "c" {
