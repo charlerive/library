@@ -128,7 +128,7 @@ const (
 func (s *SviVolatility) LMFit(x, y *mat.VecDense, pStart *SviParams) *SviParams {
 	resZero := Res0
 	nu := float64(Nu0)
-	dataLen := len(s.MarketDataList)
+	dataLen := x.Len()
 	p := pStart.Copy()
 	rTranspose := mat.NewDense(1, dataLen, nil)
 	for i := 0; i < MaxIterations; i++ {
@@ -189,7 +189,7 @@ func (s *SviVolatility) LMFit(x, y *mat.VecDense, pStart *SviParams) *SviParams 
 }
 
 func (s *SviVolatility) FVector(x *mat.VecDense, p *SviParams) *mat.VecDense {
-	dataLen := len(s.MarketDataList)
+	dataLen := x.Len()
 	outline := mat.NewVecDense(dataLen, nil)
 	for i := 0; i < x.Len(); i++ {
 		outline.SetVec(i, s.F(x.AtVec(i), p))
