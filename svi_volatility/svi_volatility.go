@@ -122,6 +122,7 @@ const (
 	Res0          = 1e9
 	MaxIterations = 25
 	Tolerance     = 1e-8
+	ParamsLen     = 5
 )
 
 // Levenberg-Marquardt 最小二乘法
@@ -149,7 +150,7 @@ func (s *SviVolatility) LMFit(x, y *mat.VecDense, pStart *SviParams) *SviParams 
 		alpha := &mat.Dense{}
 		alpha.Mul(tmpGradFMatrix.T(), tmpGradFMatrix)
 
-		for j := 0; j < 5; j++ {
+		for j := 0; j < ParamsLen; j++ {
 			alpha.Set(j, j, alpha.At(j, j)*(1+1/nu))
 		}
 
@@ -204,10 +205,10 @@ func (s *SviVolatility) F(strikePrice float64, p *SviParams) float64 {
 }
 
 func (s *SviVolatility) GradFMatrix(x *mat.VecDense, p *SviParams) *mat.Dense {
-	outMatrixTranspose := mat.NewDense(5, x.Len(), nil)
+	outMatrixTranspose := mat.NewDense(ParamsLen, x.Len(), nil)
 	for i := 0; i < x.Len(); i++ {
 		tmpGradFI := s.GradF(x.AtVec(i), p)
-		for j := 0; j < 5; j++ {
+		for j := 0; j < ParamsLen; j++ {
 			outMatrixTranspose.Set(j, i, tmpGradFI[j])
 		}
 	}
@@ -215,7 +216,7 @@ func (s *SviVolatility) GradFMatrix(x *mat.VecDense, p *SviParams) *mat.Dense {
 }
 
 func (s *SviVolatility) GradF(strikePrice float64, p *SviParams) []float64 {
-	res := make([]float64, 5)
+	res := make([]float64, ParamsLen)
 	k := s.kMap[strikePrice]
 	kM := k - p.Eta
 	ff := s.F(strikePrice, p)
