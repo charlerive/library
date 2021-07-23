@@ -50,6 +50,9 @@ func NewSviVolatility(ForwardPrice float64, T float64) *SviVolatility {
 // 曲线拟合返回参数
 func (s *SviVolatility) FitVol() *SviParams {
 	// prepare to call the Levenberg-Marquardt method
+	if s.A == 0 || s.B == 0 || s.C == 0 || s.Rho == 0 || s.Eta == 0 {
+		return s.SviParams
+	}
 	return s.LMFit(s.xMatrix, s.yMatrix, s.SviParams)
 }
 
@@ -70,19 +73,17 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 	s.MarketDataList = marketDataList
 	s.xMatrix = mat.NewVecDense(len(marketDataList), nil)
 	s.yMatrix = mat.NewVecDense(len(marketDataList), nil)
-	for i, marketData := range marketDataList {
-		s.xMatrix.SetVec(i, marketData.StrikePrice)
-		s.yMatrix.SetVec(i, marketData.ImVol)
-		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
-		s.kMap[marketData.StrikePrice] = k
-	}
 
 	moneynessArr := make([]float64, 0)
 	// 方差
 	varianceArr := make([]float64, 0)
 	dataLen := len(s.MarketDataList)
-	for _, marketData := range s.MarketDataList {
-		moneynessArr = append(moneynessArr, math.Log(marketData.StrikePrice/s.ForwardPrice))
+	for i, marketData := range s.MarketDataList {
+		s.xMatrix.SetVec(i, marketData.StrikePrice)
+		s.yMatrix.SetVec(i, marketData.ImVol)
+		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
+		s.kMap[marketData.StrikePrice] = k
+		moneynessArr = append(moneynessArr, k)
 		varianceArr = append(varianceArr, marketData.ImVol*marketData.ImVol*s.T)
 	}
 
@@ -115,6 +116,21 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 	}
 	s.C = -(-miniVariance + al + bl*(-al+ar)/(bl-br))
 	s.C = s.C / s.B / math.Sqrt(math.Abs(1-s.Rho*s.Rho))
+	if math.IsNaN(s.A) {
+		s.A = 0
+	}
+	if math.IsNaN(s.B) {
+		s.B = 0
+	}
+	if math.IsNaN(s.C) {
+		s.C = 0
+	}
+	if math.IsNaN(s.Rho) {
+		s.Rho = 0
+	}
+	if math.IsNaN(s.Eta) {
+		s.Eta = 0
+	}
 }
 
 const (
@@ -186,6 +202,22 @@ func (s *SviVolatility) LMFit(x, y *mat.VecDense, pStart *SviParams) *SviParams 
 		}
 		resZero = res
 	}
+	if math.IsNaN(p.A) {
+		p.A = 0
+	}
+	if math.IsNaN(p.B) {
+		p.B = 0
+	}
+	if math.IsNaN(p.C) {
+		p.C = 0
+	}
+	if math.IsNaN(p.Rho) {
+		p.Rho = 0
+	}
+	if math.IsNaN(p.Eta) {
+		p.Eta = 0
+	}
+
 	return p
 }
 
