@@ -50,7 +50,7 @@ func NewSviVolatility(ForwardPrice float64, T float64) *SviVolatility {
 // 曲线拟合返回参数
 func (s *SviVolatility) FitVol() *SviParams {
 	// prepare to call the Levenberg-Marquardt method
-	if s.A == 0 || s.B == 0 || s.C == 0 || s.Rho == 0 || s.Eta == 0 {
+	if s.A == 0 && s.B == 0 && s.C == 0 && s.Eta == 0 {
 		return s.SviParams
 	}
 	return s.LMFit(s.xMatrix, s.yMatrix, s.SviParams)
@@ -77,7 +77,6 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 	moneynessArr := make([]float64, 0)
 	// 方差
 	varianceArr := make([]float64, 0)
-	dataLen := len(s.MarketDataList)
 	for i, marketData := range s.MarketDataList {
 		s.xMatrix.SetVec(i, marketData.StrikePrice)
 		s.yMatrix.SetVec(i, marketData.ImVol)
@@ -87,28 +86,47 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 		varianceArr = append(varianceArr, marketData.ImVol*marketData.ImVol*s.T)
 	}
 
-	x1, x2, y1, y2 := 0.0, 0.0, 0.0, 0.0
+	lx1, lx2, ly1, ly2, rx1, rx2, ry1, ry2 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	al, ar, bl, br := 0.0, 0.0, 0.0, 0.0
 
+	i := 0
+	for ; varianceArr[i] == varianceArr[i+1]; i++ {
+		if moneynessArr[i+1] > 0 {
+			return
+		}
+	}
+	j := len(varianceArr)
+	for ; varianceArr[j] == varianceArr[j-1]; j-- {
+		if moneynessArr[j-1] < 0 {
+			return
+		}
+	}
+
 	// coefficients left asymptotics
-	x1, x2, y1, y2 = moneynessArr[0], moneynessArr[1], varianceArr[0], varianceArr[1]
-	al = (x1*y2 - y1*x2) / (x1 - x2)
-	bl = -math.Abs((y2 - y1) / (x2 - x1))
+	lx1, lx2, ly1, ly2 = moneynessArr[i], moneynessArr[i+1], varianceArr[i], varianceArr[i+1]
+	al = (lx1*ly2 - ly1*lx2) / (lx1 - lx2)
+	bl = -math.Abs((ly2 - ly1) / (lx2 - lx1))
 
 	// coefficients right asymptotics
-	x1, x2, y1, y2 = moneynessArr[dataLen-2], moneynessArr[dataLen-1], varianceArr[dataLen-2], varianceArr[dataLen-1]
-	ar = (x1*y2 - y1*x2) / (x1 - x2)
-	br = math.Abs((y2 - y1) / (x2 - x1))
+	rx1, rx2, ry1, ry2 = moneynessArr[j-1], moneynessArr[j], varianceArr[j-1], varianceArr[j]
+	ar = (rx1*ry2 - ry1*rx2) / (rx1 - rx2)
+	br = math.Abs((ry2 - ry1) / (rx2 - rx1))
 
 	// params through asymptotics
 	s.B = (br - bl) / 2
 	s.Rho = (bl + br) / (br - bl)
+	if s.Rho > 0.99 {
+		s.Rho = 0.99
+	} else if s.Rho < -0.99 {
+		s.Rho = -0.99
+	}
+
 	s.A = al + bl*(-al+ar)/(bl-br)
 	s.Eta = bl * (-al + ar) / (bl - br) / s.B / (s.Rho - 1)
 
 	// s.C = smoothing the vertex at the minimum
 	// minimum by brute force instead of WorksheetFunction.min
-	miniVariance := y1
+	miniVariance := ry1
 	for _, v := range varianceArr {
 		if miniVariance > v {
 			miniVariance = v
