@@ -1,6 +1,7 @@
 package svi_volatility
 
 import (
+	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/mat"
 	"log"
 	"math"
@@ -282,4 +283,246 @@ func (s *SviVolatility) GradF(strikePrice float64, p *SviParams) []float64 {
 	res[4] = -tmpB * (p.Rho + kM/tmp1)
 
 	return res
+}
+
+func TotalVariance(kList []float64, p *SviParams) []float64 {
+	res := make([]float64, 0)
+	for _, k := range kList {
+		res = append(res, Variance(k-p.Eta, p.A, p.B, p.C, p.Rho))
+	}
+	return res
+}
+
+/** Right constraints **/
+func RightConstraint1(x, gradient []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	return ((4 - p.A + p.B*p.Eta*(p.Rho+1)) * (p.A - p.B*p.Eta*(p.Rho+1))) - (p.B * p.B * (p.Rho + 1) * (p.Rho + 1))
+}
+func RightConstraint2(x, gradient []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	return 4 - (p.B * p.B * (p.Rho + 1) * (p.Rho + 1))
+}
+
+/** Left constraints **/
+func LeftConstraint1(x, gradient []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	return ((4 - p.A + p.B*p.Eta*(p.Rho-1)) * (p.A - p.B*p.Eta*(p.Rho-1))) - (p.B * p.B * (p.Rho - 1) * (p.Rho - 1))
+}
+func LeftConstraint2(x, gradient []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	return 4 - (p.B * p.B * (p.Rho - 1) * (p.Rho - 1))
+}
+
+func Constraint(x, gradient []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	return p.C * p.C
+}
+
+// Objective function to optimize
+func LeastSquares(x, kList, totImpliedVariance []float64) float64 {
+	p := &SviParams{
+		A:   x[0],
+		B:   x[1],
+		C:   x[2],
+		Rho: x[3],
+		Eta: x[4],
+	}
+	vList := TotalVariance(kList, p)
+	for i, v := range vList {
+		vList[i] = v - totImpliedVariance[i]
+	}
+	vDense := mat.NewVecDense(len(vList), vList)
+	return mat.Norm(vDense, 2)
+}
+
+func (s *SviVolatility) InitParamsForSLSQP(marketDataList []*MarketData) *SviParams {
+	kList := make([]float64, 0)
+	vList := make([]float64, 0)
+
+	kMin, kMax, vMin, vMax := math.MaxFloat64, math.MaxFloat64*-1, math.MaxFloat64, math.MaxFloat64*-1
+	for _, marketData := range marketDataList {
+		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
+		v := marketData.ImVol * marketData.ImVol * s.T
+		kList = append(kList, k)
+		vList = append(vList, v)
+		if kMin > k {
+			kMin = k
+		}
+		if kMax < k {
+			kMax = k
+		}
+		if vMin > v {
+			vMin = v
+		}
+		if vMax < v {
+			vMax = v
+		}
+	}
+	aLow, bLow, cLow, rhoLow, etaLow := 0.000001, 0.001, 0.001, -0.999999, 2*kMin
+	aHigh, bHigh, cHigh, rhoHigh, etaHigh := vMax, 1., 2., 0.999999, 2*kMax
+	aInit, bInit, cInit, rhoInit, etaInit := vMin/2, 0.1, 0.1, -0.5, 0.1
+	lowBounds := []float64{aLow, bLow, cLow, rhoLow, etaLow}
+	log.Printf("lowBounds: %+v", lowBounds)
+	upBounds := []float64{aHigh, bHigh, cHigh, rhoHigh, etaHigh}
+	log.Printf("upBounds: %+v", upBounds)
+	paramInit := []float64{aInit, bInit, cInit, rhoInit, etaInit}
+	log.Printf("paramInit: %+v", paramInit)
+
+	/*pro := optimize.Problem{
+		Func: func(x []float64) float64 {
+			return LeastSquares(x, kList, vList)
+		},
+	}
+	result, err := optimize.Minimize(pro, paramInit, &optimize.Settings{}, nil)
+	if err == nil {
+		log.Printf("result: %+v", result)
+		return nil
+	}
+	if err != nil {
+		log.Printf("err: %+v", err)
+		return nil
+	}*/
+
+	//paramInit = []float64{0.0054421079489133046,0.03117294131686459,0.001,0.4853198041450475,0.10595859238899136}
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, 5)
+	if err != nil {
+		return nil
+	}
+	defer opt.Destroy()
+	// (a + b*(rho*(k-eta)+math.Sqrt((k-eta)*(k-eta)+c*c)))/T
+	err = opt.SetMinObjective(func(x, gradient []float64) float64 {
+		p := &SviParams{
+			A:   x[0],
+			B:   x[1],
+			C:   x[2],
+			Rho: x[3],
+			Eta: x[4],
+		}
+		if len(gradient) > 0 {
+			// K当成0
+			eta := 0 - p.Eta
+			d1 := math.Sqrt(eta*eta + p.C*p.C)
+			gradient[0] = 1 / s.T
+			gradient[1] = (p.Rho*eta + d1) / s.T
+			gradient[2] = p.B * p.C / d1 / s.T
+			gradient[3] = p.Rho * eta / s.T
+			gradient[4] = (p.Eta/d1 - p.B*p.Eta) / s.T
+		}
+		/*if len(gradient) > 0 {
+			// K当成1
+			eta := 1-p.Eta
+			d1 := math.Sqrt(eta * eta + p.C * p.C)
+			gradient[0] = 1 / s.T
+			gradient[1] = (p.Rho * eta + d1) / s.T
+			gradient[2] =  p.B * p.C / d1 / s.T
+			gradient[3] = p.Rho * eta / s.T
+			gradient[4] = (p.Eta / d1 - p.B * p.Eta) / s.T
+		}*/
+		/*
+			if len(gradient) > 0 {
+				d1 := math.Sqrt(p.Eta * p.Eta + p.C * p.C)
+				d2 := math.Sqrt(s.T * (p.A + p.B * (p.Rho * -p.Eta + math.Sqrt(p.Eta * p.Eta + p.C * p.C))))
+				gradient[0] = 0.5 * ( 1 / d2)
+				gradient[1] = 0.5 * ( (-p.Rho * p.Eta + d1) / d2)
+				gradient[2] = 0.5 * ( p.B * p.C / (d2 * d1))
+				gradient[3] = 0.5 * (-p.Rho * p.Eta / d2)
+				gradient[4] = 0.5 * ( (p.Eta - p.B * p.Eta * d1) / (d2 * d1))
+			}*/
+		/*if len(gradient) > 0 {
+			gradient[0] = 1
+			gradient[1] = x[3] - x[3]*x[4] + math.Sqrt(x[4] * x[4] + x[2] * x[2])
+			gradient[2] = x[1] * (x[2] + x[4])
+			gradient[3] = -x[1] * x[4]
+			gradient[4] = x[1] * (-x[3] + x[4] + x[2]*x[2] / 2)
+		}*/
+		//p := &SviParams{
+		//	A:   x[0],
+		//	B:   x[1],
+		//	C:   x[2],
+		//	Rho: x[3],
+		//	Eta: x[4],
+		//}
+		//if len(gradient) > 0 {
+		//	gradient[0] = 1
+		//	gradient[1] = -p.Rho * p.Eta + math.Sqrt(p.Eta * p.Eta + p.C * p.C)
+		//	gradient[2] = p.B * p.C * (p.Eta * p.Eta + p.C * p.C)
+		//	gradient[3] = -p.B * p.Eta
+		//	gradient[4] = -p.B * p.Rho + p.B * p.Eta * (p.Eta * p.Eta + p.C * p.C)
+		//}
+		//log.Printf("x: %+v", x)
+		//log.Printf("gradient: %+v", gradient)
+		//log.Printf("LeastSquares(x, kList, vList): %+v", LeastSquares(x, kList, vList))
+		return LeastSquares(x, kList, vList)
+	})
+	if err != nil {
+		log.Printf("err: %+v", err)
+	}
+
+	_ = opt.SetLowerBounds(lowBounds)
+	_ = opt.SetUpperBounds(upBounds)
+	_ = opt.SetXtolRel(1e-9)
+	_ = opt.SetFtolRel(1e-9)
+	_ = opt.SetMaxEval(10000)
+
+	/*err = opt.AddInequalityMConstraint(func(result, x, gradient []float64) {
+		result[0] = RightConstraint1(x, kList)
+		result[1] = RightConstraint2(x, kList)
+		result[2] = LeftConstraint1(x, kList)
+		result[3] = LeftConstraint2(x, kList)
+		return
+	}, []float64{1e-9, 1e-9, 1e-9, 1e-9})
+	if err != nil {
+		log.Printf("err: %+v", err)
+	}*/
+
+	_ = opt.AddInequalityConstraint(RightConstraint1, 1e-9)
+	_ = opt.AddInequalityConstraint(RightConstraint2, 1e-9)
+	_ = opt.AddInequalityConstraint(LeftConstraint1, 1e-9)
+	_ = opt.AddInequalityConstraint(LeftConstraint2, 1e-9)
+	_ = opt.AddInequalityConstraint(Constraint, 1e-6)
+
+	log.Printf("opt: %+v", opt)
+	param, f, err := opt.Optimize(paramInit)
+	if err != nil {
+		log.Printf("param: %+v, f: %+v, err: %s", param, f, err)
+		return nil
+	}
+	s.SviParams = &SviParams{}
+	s.A = param[0]
+	s.B = param[1]
+	s.C = param[2]
+	s.Rho = param[3]
+	s.Eta = param[4]
+
+	return s.SviParams
 }

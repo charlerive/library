@@ -1,6 +1,7 @@
 package svi_volatility
 
 import (
+	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/mat"
 	"log"
 	"math"
@@ -119,4 +120,91 @@ func BenchmarkSviVolatility_GetImVol(b *testing.B) {
 		s := generateS()
 		s.GetImVol(3500, p)
 	}
+}
+
+func TestNorm(t *testing.T) {
+	vDense := mat.NewVecDense(7, []float64{-0.00058974, 0.00034847, 0.00037835, 0.00069335, -0.00083113, 0.00111637, -0.00064025})
+	t.Logf("norm vDense: %f", mat.Norm(vDense, 2))
+}
+
+func TestSviVolatility_InitParamsForSLSQP(t *testing.T) {
+	marketDataList = []*MarketData{
+		{
+			StrikePrice: 30000,
+			ImVol:       1.076,
+		},
+		{
+			StrikePrice: 32000,
+			ImVol:       0.966,
+		},
+		{
+			StrikePrice: 34000,
+			ImVol:       0.905,
+		},
+		{
+			StrikePrice: 36000,
+			ImVol:       0.824,
+		},
+		{
+			StrikePrice: 38000,
+			ImVol:       0.868,
+		},
+		{
+			StrikePrice: 40000,
+			ImVol:       0.804,
+		},
+		{
+			StrikePrice: 45000,
+			ImVol:       1.211,
+		},
+	}
+	s := NewSviVolatility(34940.32, 0.008789954)
+	s.InitParamsForSLSQP(marketDataList)
+	t.Logf("svi: %+v", s.SviParams)
+}
+
+func TestSviVolatility_GetImVol(t *testing.T) {
+	s := NewSviVolatility(34940.32, 0.008789954)
+	p := &SviParams{
+		A:   -1.7939244727839825,
+		B:   1.5006777096275756,
+		C:   1.7567226362270612,
+		Rho: 0.7306938504972463,
+		Eta: 1.920311710946073,
+	}
+	log.Printf("%+v", s.GetImVol(30000, p))
+	log.Printf("%+v", s.GetImVol(32000, p))
+	log.Printf("%+v", s.GetImVol(34000, p))
+	log.Printf("%+v", s.GetImVol(36000, p))
+	log.Printf("%+v", s.GetImVol(38000, p))
+	log.Printf("%+v", s.GetImVol(40000, p))
+	log.Printf("%+v", s.GetImVol(45000, p))
+}
+
+func TestLeastSquares(t *testing.T) {
+	// f(x) = x1^2 + x2^2
+	var minFunc = func(x, gradient []float64) float64 {
+		if len(gradient) > 0 {
+			gradient[0] = 2 * x[0]
+			gradient[1] = 2 * x[1]
+		}
+		log.Printf("x: %+v", x)
+		log.Printf("gradient: %+v", gradient)
+		return x[0]*x[0] + x[1]*x[1]
+	}
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, 2)
+	if err != nil {
+		return
+	}
+	defer opt.Destroy()
+
+	err = opt.SetMinObjective(minFunc)
+
+	if err != nil {
+		log.Printf("err: %+v", err)
+	}
+	_ = opt.SetXtolRel(1e-6)
+	_ = opt.SetFtolRel(1e-6)
+	param, f, err := opt.Optimize([]float64{100.0, 100.0})
+	log.Printf("param: %+v, f: %+v, err: %+v", param, f, err)
 }
