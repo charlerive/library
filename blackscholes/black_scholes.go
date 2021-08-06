@@ -49,7 +49,7 @@ func NewBS(direction string, S float64, X float64, T float64, r float64, op floa
 		IvMin:     ivMin,
 		ExtractT:  math.Sqrt(T),
 	}
-	bsm.init()
+	bsm.Init()
 	return &bsm
 }
 
@@ -67,11 +67,11 @@ func NewBSWithIv(direction string, S float64, X float64, T float64, r float64, o
 		IvMin:     ivMin,
 		ExtractT:  math.Sqrt(T),
 	}
-	bsm.init()
+	bsm.Init()
 	return &bsm
 }
 
-func (bsm *BSM) init() {
+func (bsm *BSM) Init() {
 	// 计算波动率
 	if bsm.Iv == 0 {
 		bsm.ImVolBisection()
