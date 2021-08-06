@@ -3,8 +3,10 @@ package svi_volatility
 import (
 	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/optimize"
 	"log"
 	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -166,11 +168,11 @@ func TestSviVolatility_InitParamsForSLSQP(t *testing.T) {
 func TestSviVolatility_GetImVol(t *testing.T) {
 	s := NewSviVolatility(34940.32, 0.008789954)
 	p := &SviParams{
-		A:   -1.7939244727839825,
-		B:   1.5006777096275756,
-		C:   1.7567226362270612,
-		Rho: 0.7306938504972463,
-		Eta: 1.920311710946073,
+		A:   1.00000556242391e-06,
+		B:   0.08956708244722143,
+		C:   0.09355751639731845,
+		Rho: 0.7234782209309841,
+		Eta: 0.201713263884905,
 	}
 	log.Printf("%+v", s.GetImVol(30000, p))
 	log.Printf("%+v", s.GetImVol(32000, p))
@@ -179,6 +181,22 @@ func TestSviVolatility_GetImVol(t *testing.T) {
 	log.Printf("%+v", s.GetImVol(38000, p))
 	log.Printf("%+v", s.GetImVol(40000, p))
 	log.Printf("%+v", s.GetImVol(45000, p))
+
+	log.Printf("%+v", s.GetVariance(30000, p))
+	log.Printf("%+v", s.GetVariance(32000, p))
+	log.Printf("%+v", s.GetVariance(34000, p))
+	log.Printf("%+v", s.GetVariance(36000, p))
+	log.Printf("%+v", s.GetVariance(38000, p))
+	log.Printf("%+v", s.GetVariance(40000, p))
+	log.Printf("%+v", s.GetVariance(45000, p))
+	varience := (s.GetVariance(30000, p)-1.076*1.076*0.008789954)*(s.GetVariance(30000, p)-1.076*1.076*0.008789954) +
+		(s.GetVariance(32000, p)-0.966*0.966*0.008789954)*(s.GetVariance(32000, p)-0.966*0.966*0.008789954) +
+		(s.GetVariance(34000, p)-0.905*0.905*0.008789954)*(s.GetVariance(34000, p)-0.905*0.905*0.008789954) +
+		(s.GetVariance(36000, p)-0.824*0.824*0.008789954)*(s.GetVariance(36000, p)-0.824*0.824*0.008789954) +
+		(s.GetVariance(38000, p)-0.868*0.868*0.008789954)*(s.GetVariance(38000, p)-0.868*0.868*0.008789954) +
+		(s.GetVariance(40000, p)-0.804*0.804*0.008789954)*(s.GetVariance(40000, p)-0.804*0.804*0.008789954) +
+		(s.GetVariance(45000, p)-1.211*1.211*0.008789954)*(s.GetVariance(45000, p)-1.211*1.211*0.008789954)
+	log.Printf("varience: %+v", varience)
 }
 
 func TestLeastSquares(t *testing.T) {
@@ -207,4 +225,33 @@ func TestLeastSquares(t *testing.T) {
 	_ = opt.SetFtolRel(1e-6)
 	param, f, err := opt.Optimize([]float64{100.0, 100.0})
 	log.Printf("param: %+v, f: %+v, err: %+v", param, f, err)
+}
+
+func TestLeastSquares1(t *testing.T) {
+	// f(x) = a * x^2 + b
+	// f(x) = 1.5 * x^2 + 3
+	xList, yList := make([]float64, 0), make([]float64, 0)
+	for i := 0; i < 100; i++ {
+		cur := rand.Float64()
+		xList = append(xList, cur)
+		yList = append(yList, 1.5*cur*cur+3)
+	}
+
+	pro := optimize.Problem{
+		Func: func(x []float64) float64 {
+			res := 0.0
+			for i, item := range xList {
+				cur := x[0]*item*item + x[1] - yList[i]
+				res += cur * cur
+			}
+			return res
+		},
+	}
+	result, err := optimize.Minimize(pro, []float64{1, 1}, &optimize.Settings{}, nil)
+	if err == nil {
+		log.Printf("result: %+v", result)
+	}
+	if err != nil {
+		log.Printf("err: %+v", err)
+	}
 }
