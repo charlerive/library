@@ -429,9 +429,9 @@ func (s *SviVolatility) InitParamsForSLSQP(marketDataList []*MarketData) *SviPar
 				return math.MaxFloat64
 			}
 			// Constraint
-			/*if LeftConstraint1(x, []float64{}) <= 1e9 || LeftConstraint2(x, []float64{}) <= 1e9 || RightConstraint1(x, []float64{}) <= 1e9 || RightConstraint2(x, []float64{}) <= 1e9 {
+			if LeftConstraint1(x, []float64{}) <= 0 || LeftConstraint2(x, []float64{}) <= 0 || RightConstraint1(x, []float64{}) <= 0 || RightConstraint2(x, []float64{}) <= 0 {
 				return math.MaxFloat64
-			}*/
+			}
 			return LeastSquares(x, kList, vList)
 		},
 	}
