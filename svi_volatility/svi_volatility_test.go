@@ -1,7 +1,7 @@
 package svi_volatility
 
 import (
-	"github.com/go-nlopt/nlopt"
+	/*"github.com/go-nlopt/nlopt"*/
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
 	"log"
@@ -199,7 +199,7 @@ func TestSviVolatility_GetImVol(t *testing.T) {
 	log.Printf("varience: %+v", math.Sqrt(varience))
 }
 
-func TestLeastSquares(t *testing.T) {
+/*func TestLeastSquares(t *testing.T) {
 	// f(x) = x1^2 + x2^2
 	var minFunc = func(x, gradient []float64) float64 {
 		if len(gradient) > 0 {
@@ -225,7 +225,7 @@ func TestLeastSquares(t *testing.T) {
 	_ = opt.SetFtolRel(1e-6)
 	param, f, err := opt.Optimize([]float64{100.0, 100.0})
 	log.Printf("param: %+v, f: %+v, err: %+v", param, f, err)
-}
+}*/
 
 func TestLeastSquares1(t *testing.T) {
 	// f(x) = a * x^2 + b

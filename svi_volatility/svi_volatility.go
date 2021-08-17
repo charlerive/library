@@ -3,7 +3,7 @@ package svi_volatility
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-nlopt/nlopt"
+	/*"github.com/go-nlopt/nlopt"*/
 	"gonum.org/v1/gonum/mat"
 	"log"
 	"math"
@@ -464,7 +464,7 @@ func (s *SviVolatility) InitParamsForSLSQP(marketDataList []*MarketData) *SviPar
 	upBounds := []float64{aHigh, bHigh, cHigh, rhoHigh, etaHigh}
 	log.Printf("upBounds: %+v", upBounds)
 	paramInit := []float64{aInit, bInit, cInit, rhoInit, etaInit}
-	//log.Printf("paramInit: %+v", paramInit)
+	log.Printf("paramInit: %+v", paramInit)
 	//log.Printf("klist: %+v", kList)
 	//log.Printf("vlist: %+v", vList)
 	/*pro := optimize.Problem{
@@ -540,117 +540,117 @@ func (s *SviVolatility) InitParamsForSLSQP(marketDataList []*MarketData) *SviPar
 
 	//paramInit = []float64{0.0054421079489133046,0.03117294131686459,0.001,0.4853198041450475,0.10595859238899136}
 	//svi: &{A:0.012890652035712746 B:0.2946183363201443 C:0.005139194991262575 Rho:0.47910891553009877 Eta:-0.3048881608663741}
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, 5)
-	if err != nil {
-		return nil
-	}
-	defer opt.Destroy()
-	// (a + b*(rho*(k-eta)+math.Sqrt((k-eta)*(k-eta)+c*c)))
-	err = opt.SetMinObjective(func(x, gradient []float64) float64 {
-		if len(gradient) > 0 {
-			p := &SviParams{
-				A:   x[0],
-				B:   x[1],
-				C:   x[2],
-				Rho: x[3],
-				Eta: x[4],
-			}
-
-			gradient[0], gradient[1], gradient[2], gradient[3], gradient[4] = 0.0, 0.0, 0.0, 0.0, 0.0
-			bc := p.B * p.C
-			bEta := p.B - p.Eta
-			sumD4 := 0.0
-			for i, k := range kList {
-				km := k - p.Eta
-				d1 := math.Sqrt(km*km + p.C*p.C)
-				d2 := p.Rho*km + d1
-				d3 := p.A + p.B*d2 - vList[i]
-				sumD4 += d3 * d3
-				gradient[0] += d3
-				gradient[1] += d3 * d2
-				gradient[2] += d3 * bc / d1
-				gradient[3] += d3 * km * p.B
-				gradient[4] += d3 * (-km/d1 - bEta)
-			}
-			sumD4 = math.Sqrt(sumD4)
-			gradient[0] /= sumD4
-			gradient[1] /= sumD4
-			gradient[2] /= sumD4
-			gradient[3] /= sumD4
-			gradient[4] /= sumD4
-
-			/*bc := p.B * p.C
-			bEta := p.B - p.Eta
-			for _, k := range kList {
-				km := k-p.Eta
-				d1 := math.Sqrt(km * km + p.C * p.C)
-				d2 := p.Rho * km + d1
-				//d3 := p.A + p.B * d2 - vList[i]
-				gradient[0] += 1
-				gradient[1] += d2
-				gradient[2] += bc / d1
-				gradient[3] += km * p.B
-				gradient[4] += km / d1 -bEta
-			}*/
-
-			// K当成0
-			/*eta := 0 - p.Eta
-			d1 := math.Sqrt(eta*eta + p.C*p.C)
-			if d1 == 0 {
-				panic("d1 == 0")
-			}
-			gradient[0] = 1
-			gradient[1] = p.Rho*eta + d1
-			gradient[2] = p.B * p.C / d1
-			gradient[3] = p.B * eta
-			gradient[4] = p.Eta/d1 - p.B*p.Eta*/
-		}
-
-		log.Printf("x: %+v", x)
-		log.Printf("gradient: %+v", gradient)
-		log.Printf("LeastSquares(x, kList, vList): %+v", LeastSquares(x, kList, vList))
-		return LeastSquares(x, kList, vList)
-	})
-	if err != nil {
-		log.Printf("err: %+v", err)
-	}
-
-	_ = opt.SetLowerBounds(lowBounds)
-	_ = opt.SetUpperBounds(upBounds)
-	//_ = opt.SetXtolRel(1e-9)
-	_ = opt.SetFtolRel(1e-9)
-	_ = opt.SetMaxEval(1000)
-
-	/*err = opt.AddInequalityMConstraint(func(result, x, gradient []float64) {
-		result[0] = RightConstraint1(x, kList)
-		result[1] = RightConstraint2(x, kList)
-		result[2] = LeftConstraint1(x, kList)
-		result[3] = LeftConstraint2(x, kList)
-		return
-	}, []float64{1e-9, 1e-9, 1e-9, 1e-9})
-	if err != nil {
-		log.Printf("err: %+v", err)
-	}*/
-
-	_ = opt.AddInequalityConstraint(RightConstraint1, 1e-9)
-	_ = opt.AddInequalityConstraint(RightConstraint2, 1e-9)
-	_ = opt.AddInequalityConstraint(LeftConstraint1, 1e-9)
-	_ = opt.AddInequalityConstraint(LeftConstraint2, 1e-9)
-	_ = opt.AddInequalityConstraint(Constraint, 1e-9)
-	_ = opt.AddInequalityConstraint(Constraint2, 1e-9)
-
-	log.Printf("opt: %+v", opt)
-	param, f, err := opt.Optimize(paramInit)
-	if err != nil {
-		log.Printf("param: %+v, f: %+v, err: %s", param, f, err)
-		return nil
-	}
-	s.SviParams = &SviParams{}
-	s.A = param[0]
-	s.B = param[1]
-	s.C = param[2]
-	s.Rho = param[3]
-	s.Eta = param[4]
+	//opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, 5)
+	//if err != nil {
+	//	return nil
+	//}
+	//defer opt.Destroy()
+	//// (a + b*(rho*(k-eta)+math.Sqrt((k-eta)*(k-eta)+c*c)))
+	//err = opt.SetMinObjective(func(x, gradient []float64) float64 {
+	//	if len(gradient) > 0 {
+	//		p := &SviParams{
+	//			A:   x[0],
+	//			B:   x[1],
+	//			C:   x[2],
+	//			Rho: x[3],
+	//			Eta: x[4],
+	//		}
+	//
+	//		gradient[0], gradient[1], gradient[2], gradient[3], gradient[4] = 0.0, 0.0, 0.0, 0.0, 0.0
+	//		bc := p.B * p.C
+	//		bEta := p.B - p.Eta
+	//		sumD4 := 0.0
+	//		for i, k := range kList {
+	//			km := k - p.Eta
+	//			d1 := math.Sqrt(km*km + p.C*p.C)
+	//			d2 := p.Rho*km + d1
+	//			d3 := p.A + p.B*d2 - vList[i]
+	//			sumD4 += d3 * d3
+	//			gradient[0] += d3
+	//			gradient[1] += d3 * d2
+	//			gradient[2] += d3 * bc / d1
+	//			gradient[3] += d3 * km * p.B
+	//			gradient[4] += d3 * (-km/d1 - bEta)
+	//		}
+	//		sumD4 = math.Sqrt(sumD4)
+	//		gradient[0] /= sumD4
+	//		gradient[1] /= sumD4
+	//		gradient[2] /= sumD4
+	//		gradient[3] /= sumD4
+	//		gradient[4] /= sumD4
+	//
+	//		/*bc := p.B * p.C
+	//		bEta := p.B - p.Eta
+	//		for _, k := range kList {
+	//			km := k-p.Eta
+	//			d1 := math.Sqrt(km * km + p.C * p.C)
+	//			d2 := p.Rho * km + d1
+	//			//d3 := p.A + p.B * d2 - vList[i]
+	//			gradient[0] += 1
+	//			gradient[1] += d2
+	//			gradient[2] += bc / d1
+	//			gradient[3] += km * p.B
+	//			gradient[4] += km / d1 -bEta
+	//		}*/
+	//
+	//		// K当成0
+	//		/*eta := 0 - p.Eta
+	//		d1 := math.Sqrt(eta*eta + p.C*p.C)
+	//		if d1 == 0 {
+	//			panic("d1 == 0")
+	//		}
+	//		gradient[0] = 1
+	//		gradient[1] = p.Rho*eta + d1
+	//		gradient[2] = p.B * p.C / d1
+	//		gradient[3] = p.B * eta
+	//		gradient[4] = p.Eta/d1 - p.B*p.Eta*/
+	//	}
+	//
+	//	log.Printf("x: %+v", x)
+	//	log.Printf("gradient: %+v", gradient)
+	//	log.Printf("LeastSquares(x, kList, vList): %+v", LeastSquares(x, kList, vList))
+	//	return LeastSquares(x, kList, vList)
+	//})
+	//if err != nil {
+	//	log.Printf("err: %+v", err)
+	//}
+	//
+	//_ = opt.SetLowerBounds(lowBounds)
+	//_ = opt.SetUpperBounds(upBounds)
+	////_ = opt.SetXtolRel(1e-9)
+	//_ = opt.SetFtolRel(1e-9)
+	//_ = opt.SetMaxEval(1000)
+	//
+	///*err = opt.AddInequalityMConstraint(func(result, x, gradient []float64) {
+	//	result[0] = RightConstraint1(x, kList)
+	//	result[1] = RightConstraint2(x, kList)
+	//	result[2] = LeftConstraint1(x, kList)
+	//	result[3] = LeftConstraint2(x, kList)
+	//	return
+	//}, []float64{1e-9, 1e-9, 1e-9, 1e-9})
+	//if err != nil {
+	//	log.Printf("err: %+v", err)
+	//}*/
+	//
+	//_ = opt.AddInequalityConstraint(RightConstraint1, 1e-9)
+	//_ = opt.AddInequalityConstraint(RightConstraint2, 1e-9)
+	//_ = opt.AddInequalityConstraint(LeftConstraint1, 1e-9)
+	//_ = opt.AddInequalityConstraint(LeftConstraint2, 1e-9)
+	//_ = opt.AddInequalityConstraint(Constraint, 1e-9)
+	//_ = opt.AddInequalityConstraint(Constraint2, 1e-9)
+	//
+	//log.Printf("opt: %+v", opt)
+	//param, f, err := opt.Optimize(paramInit)
+	//if err != nil {
+	//	log.Printf("param: %+v, f: %+v, err: %s", param, f, err)
+	//	return nil
+	//}
+	//s.SviParams = &SviParams{}
+	//s.A = param[0]
+	//s.B = param[1]
+	//s.C = param[2]
+	//s.Rho = param[3]
+	//s.Eta = param[4]
 
 	return s.SviParams
 }
