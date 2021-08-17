@@ -255,3 +255,43 @@ func TestLeastSquares1(t *testing.T) {
 		log.Printf("err: %+v", err)
 	}
 }
+
+func TestSviVolatility_PyMinimizeSLSQP(t *testing.T) {
+	marketDataList = []*MarketData{
+		{
+			StrikePrice: 30000,
+			ImVol:       1.076,
+		},
+		{
+			StrikePrice: 32000,
+			ImVol:       0.966,
+		},
+		{
+			StrikePrice: 34000,
+			ImVol:       0.905,
+		},
+		{
+			StrikePrice: 36000,
+			ImVol:       0.824,
+		},
+		{
+			StrikePrice: 38000,
+			ImVol:       0.868,
+		},
+		{
+			StrikePrice: 40000,
+			ImVol:       0.804,
+		},
+		{
+			StrikePrice: 45000,
+			ImVol:       1.211,
+		},
+	}
+	s := NewSviVolatility(34940.32, 0.008789954)
+	param, err := s.PyMinimizeSLSQP(marketDataList)
+	if err != nil {
+		t.Errorf("s.PyMinimizeSLSQP fail. err: %s", err)
+		return
+	}
+	t.Logf("s.PyMinimizeSLSQP success. param: %+v", param)
+}

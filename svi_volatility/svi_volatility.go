@@ -1,10 +1,16 @@
 package svi_volatility
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/go-nlopt/nlopt"
 	"gonum.org/v1/gonum/mat"
 	"log"
 	"math"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 )
 
 type SviParams struct {
@@ -101,7 +107,7 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 			return
 		}
 	}
-	j := len(varianceArr)
+	j := len(varianceArr) - 1
 	for ; varianceArr[j] == varianceArr[j-1]; j-- {
 		if moneynessArr[j-1] < 0 {
 			return
@@ -288,6 +294,51 @@ func (s *SviVolatility) GradF(strikePrice float64, p *SviParams) []float64 {
 	res[4] = -tmpB * (p.Rho + kM/tmp1)
 
 	return res
+}
+
+// 调用python的scipy实现slsqp
+func (s *SviVolatility) PyMinimizeSLSQP(marketDataList []*MarketData) (*SviParams, error) {
+	kBuf, vBuf := bytes.Buffer{}, bytes.Buffer{}
+	for _, marketData := range marketDataList {
+		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
+		v := marketData.ImVol * marketData.ImVol * s.T
+		kBuf.WriteString(",")
+		kBuf.WriteString(strconv.FormatFloat(k, 'f', -1, 64))
+
+		vBuf.WriteString(",")
+		vBuf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
+	}
+
+	command, args := "python3", []string{"minimize_slsqp.py", "-k " + kBuf.String()[1:], "-v " + vBuf.String()[1:]}
+	//command, args := "ls", []string{"-a"}
+	//command, args := "python3", []string{"minimize_slsqp.py"}
+	cmd := exec.Command(command, args...)
+	log.Printf("%+v", cmd.String())
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = os.Stderr
+	err := cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("exec.Command fail, err: %s, out: %s", err, out.String())
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("exec.Command fail, err: %s, out: %s", err, out.String())
+	}
+
+	res := strings.Split(strings.Trim(strings.Replace(out.String(), " ", "", -1), "\n"), ",")
+	if len(res) != 5 {
+		return nil, fmt.Errorf("exec.Command fail, err: %s, out: %s", err, out.String())
+	}
+
+	s.SviParams = &SviParams{}
+	s.A, _ = strconv.ParseFloat(res[0], 64)
+	s.B, _ = strconv.ParseFloat(res[1], 64)
+	s.C, _ = strconv.ParseFloat(res[2], 64)
+	s.Rho, _ = strconv.ParseFloat(res[3], 64)
+	s.Eta, _ = strconv.ParseFloat(res[4], 64)
+	return s.SviParams, nil
 }
 
 func TotalVariance(kList []float64, p *SviParams) []float64 {
