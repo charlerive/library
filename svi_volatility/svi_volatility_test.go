@@ -168,11 +168,11 @@ func TestSviVolatility_InitParamsForSLSQP(t *testing.T) {
 func TestSviVolatility_GetImVol(t *testing.T) {
 	s := NewSviVolatility(34940.32, 0.008789954)
 	p := &SviParams{
-		A:   1.00000556242391e-06,
-		B:   0.08956708244722143,
-		C:   0.09355751639731845,
-		Rho: 0.7234782209309841,
-		Eta: 0.201713263884905,
+		A:   1.0000074619500275e-06,
+		B:   0.1316765767220487,
+		C:   0.0010000000000000009,
+		Rho: -0.5109212793614326,
+		Eta: -0.16862964316836673,
 	}
 	log.Printf("%+v", s.GetImVol(30000, p))
 	log.Printf("%+v", s.GetImVol(32000, p))
@@ -196,7 +196,7 @@ func TestSviVolatility_GetImVol(t *testing.T) {
 		(s.GetVariance(38000, p)-0.868*0.868*0.008789954)*(s.GetVariance(38000, p)-0.868*0.868*0.008789954) +
 		(s.GetVariance(40000, p)-0.804*0.804*0.008789954)*(s.GetVariance(40000, p)-0.804*0.804*0.008789954) +
 		(s.GetVariance(45000, p)-1.211*1.211*0.008789954)*(s.GetVariance(45000, p)-1.211*1.211*0.008789954)
-	log.Printf("varience: %+v", varience)
+	log.Printf("varience: %+v", math.Sqrt(varience))
 }
 
 func TestLeastSquares(t *testing.T) {
