@@ -97,6 +97,9 @@ func (bsm *BSM) Init() {
 
 func (bsm *BSM) ImVolBisection() {
 	ivMax, ivMin := bsm.IvMax, bsm.IvMin
+	if ivMin < 1e-4 {
+		ivMin = 1e-4
+	}
 	opMax, opMin := 0.0, 0.0
 	opEpsilon := 0.000001 // 价格精度
 
