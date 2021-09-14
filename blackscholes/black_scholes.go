@@ -101,7 +101,7 @@ func (bsm *BSM) ImVolBisection() {
 		ivMin = 1e-4
 	}
 	opMax, opMin := 0.0, 0.0
-	opEpsilon := 0.000001 // 价格精度
+	opEpsilon := bsm.OpEpsilon // 价格精度
 
 	if bsm.Op < opEpsilon {
 		bsm.Iv = 0
