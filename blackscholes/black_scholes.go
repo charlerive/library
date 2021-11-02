@@ -128,10 +128,10 @@ func (bsm *BSM) ImVolBisection() {
 
 		if op < bsm.Op {
 			ivMin = iv
-			opMin = bsm.GetOptionPriceFromIv(ivMin)
+			opMin = op
 		} else {
 			ivMax = iv
-			opMax = bsm.GetOptionPriceFromIv(ivMax)
+			opMax = op
 		}
 
 		if execCount > 5 {
