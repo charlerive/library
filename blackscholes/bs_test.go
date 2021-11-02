@@ -21,6 +21,16 @@ func TestNewBSWithIv(t *testing.T) {
  * PASS
  * ok      github.com/charlerive/library/blackscholes      3.199s
  */
+
+/**
+ * goos: darwin
+ * goarch: arm64
+ * pkg: github.com/charlerive/library/blackscholes
+ * BenchmarkRpc-8          2768335               413.6 ns/op
+ * BenchmarkBs-8           9026594               132 ns/op
+ * PASS
+ */
+
 func BenchmarkRpc(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
