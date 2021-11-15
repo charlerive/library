@@ -32,8 +32,8 @@ func (s *SviParams) Copy() *SviParams {
 }
 
 type MarketData struct {
-	K     float64 //math.Log(StrikePrice / ForwardPrice)
-	ImVol float64
+	K  float64 //math.Log(StrikePrice / ForwardPrice)
+	Vt float64 //imVol*imVol*T
 }
 
 type SviVolatility struct {
@@ -87,9 +87,9 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 	varianceArr := make([]float64, 0)
 	for i, marketData := range s.MarketDataList {
 		s.xMatrix.SetVec(i, marketData.K)
-		s.yMatrix.SetVec(i, marketData.ImVol)
+		s.yMatrix.SetVec(i, marketData.Vt)
 		moneynessArr = append(moneynessArr, marketData.K)
-		varianceArr = append(varianceArr, marketData.ImVol*marketData.ImVol*s.T)
+		varianceArr = append(varianceArr, marketData.Vt)
 	}
 
 	lx1, lx2, ly1, ly2, rx1, rx2, ry1, ry2 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -293,12 +293,11 @@ func (s *SviVolatility) GradF(k float64, p *SviParams) []float64 {
 func (s *SviVolatility) PyMinimizeSLSQP(marketDataList []*MarketData) (*SviParams, error) {
 	kBuf, vBuf := bytes.Buffer{}, bytes.Buffer{}
 	for _, marketData := range marketDataList {
-		v := marketData.ImVol * marketData.ImVol * s.T
 		kBuf.WriteString(",")
 		kBuf.WriteString(strconv.FormatFloat(marketData.K, 'f', -1, 64))
 
 		vBuf.WriteString(",")
-		vBuf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
+		vBuf.WriteString(strconv.FormatFloat(marketData.Vt, 'f', -1, 64))
 	}
 
 	command, args := "python3", []string{"minimize_slsqp.py", "-k " + kBuf.String()[1:], "-v " + vBuf.String()[1:]}
