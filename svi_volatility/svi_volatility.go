@@ -87,9 +87,9 @@ func (s *SviVolatility) InitParams(marketDataList []*MarketData) {
 	varianceArr := make([]float64, 0)
 	for i, marketData := range s.MarketDataList {
 		s.xMatrix.SetVec(i, marketData.K)
-		s.yMatrix.SetVec(i, marketData.V)
+		s.yMatrix.SetVec(i, marketData.V*s.T)
 		moneynessArr = append(moneynessArr, marketData.K)
-		varianceArr = append(varianceArr, marketData.V)
+		varianceArr = append(varianceArr, marketData.V*s.T)
 	}
 
 	lx1, lx2, ly1, ly2, rx1, rx2, ry1, ry2 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -297,7 +297,7 @@ func (s *SviVolatility) PyMinimizeSLSQP(marketDataList []*MarketData) (*SviParam
 		kBuf.WriteString(strconv.FormatFloat(marketData.K, 'f', -1, 64))
 
 		vBuf.WriteString(",")
-		vBuf.WriteString(strconv.FormatFloat(marketData.V, 'f', -1, 64))
+		vBuf.WriteString(strconv.FormatFloat(marketData.V*s.T, 'f', -1, 64))
 	}
 
 	command, args := "python3", []string{"minimize_slsqp.py", "-k " + kBuf.String()[1:], "-v " + vBuf.String()[1:]}
