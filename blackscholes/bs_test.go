@@ -1,6 +1,10 @@
 package blackscholes
 
-import "testing"
+import (
+	"math"
+	"strings"
+	"testing"
+)
 
 func TestNewBS(t *testing.T) {
 	bs := NewBS("p", 4600, 5000, 0.1644, 0.025, 996.27, 0.01, 3, 0.3)
@@ -32,15 +36,41 @@ func TestNewBSWithIv(t *testing.T) {
  */
 
 func BenchmarkRpc(b *testing.B) {
+	bsm := BSM{
+		D:         strings.ToLower("p"),
+		S:         4600,
+		X:         5000,
+		T:         0.1644,
+		R:         0.025,
+		Op:        996.27,
+		OpEpsilon: 0.01,
+		IvMax:     3,
+		IvMin:     0.3,
+		ExtractT:  math.Sqrt(0.1644),
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = NewBS("p", 4600, 5000, 0.1644, 0.025, 996.27, 0.01, 3, 0.3)
+		bsm.Iv = 0
+		bsm.Init()
 	}
 }
 
 func BenchmarkBs(b *testing.B) {
+	bsm := BSM{
+		D:         strings.ToLower("p"),
+		S:         4600,
+		X:         5000,
+		T:         0.1644,
+		R:         0.025,
+		Op:        996.27,
+		OpEpsilon: 0.01,
+		Iv:        1.0304,
+		IvMax:     3,
+		IvMin:     0.3,
+		ExtractT:  math.Sqrt(0.1644),
+	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = NewBSWithIv("p", 4600, 5000, 0.1644, 0.025, 996.27, 0.01, 3, 0.3, 1.0304)
+		bsm.Init()
 	}
 }

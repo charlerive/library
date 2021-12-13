@@ -36,8 +36,16 @@ type MarketData struct {
 	V float64 //imVol*imVol
 }
 
+type Boundary struct {
+	KValue float64
+	Slope  float64
+}
+
 type SviVolatility struct {
 	*SviParams
+	leftBoundary   *Boundary
+	rightBoundary  *Boundary
+	boundaryFunc   func(k float64, b *Boundary, p *SviParams) float64
 	MarketDataList []*MarketData
 	xMatrix        *mat.VecDense
 	yMatrix        *mat.VecDense
@@ -48,7 +56,34 @@ func NewSviVolatility(T float64) *SviVolatility {
 	s := &SviVolatility{
 		T: T,
 	}
+	s.boundaryFunc = func(k float64, b *Boundary, p *SviParams) float64 {
+		if s.SviParams == nil {
+			return 0
+		}
+		return math.Sqrt(math.Abs(s.GetVariance(b.KValue, p)/s.T + (k-b.KValue)*b.Slope))
+	}
 	return s
+}
+
+// 设置左边界
+func (s *SviVolatility) SetLeftBoundary(k, slope float64) {
+	s.leftBoundary = &Boundary{
+		KValue: k,
+		Slope:  slope,
+	}
+}
+
+// 设置右边界
+func (s *SviVolatility) SetRightBoundary(k, slope float64) {
+	s.rightBoundary = &Boundary{
+		KValue: k,
+		Slope:  slope,
+	}
+}
+
+// 设置超过边界的调用函数
+func (s *SviVolatility) SetBoundaryFunc(f func(k float64, b *Boundary, p *SviParams) float64) {
+	s.boundaryFunc = f
 }
 
 // 曲线拟合返回参数
@@ -62,6 +97,11 @@ func (s *SviVolatility) FitVol() *SviParams {
 
 // 根据参数和行权价格找到波动率
 func (s *SviVolatility) GetImVol(k float64, p *SviParams) float64 {
+	if s.leftBoundary != nil && k < s.leftBoundary.KValue {
+		return s.boundaryFunc(k, s.leftBoundary, p)
+	} else if s.rightBoundary != nil && k > s.rightBoundary.KValue {
+		return s.boundaryFunc(k, s.rightBoundary, p)
+	}
 	kM := k - p.Eta
 	return math.Sqrt(math.Abs(Variance(kM, p.A, p.B, p.C, p.Rho) / s.T))
 }

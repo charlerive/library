@@ -53,32 +53,32 @@ var marketDataList = []*MarketDataOld{
 
 var marketDataList1 = []*MarketData{
 	{
-		K:     math.Log(3500 / 5066.5),
-		ImVol: 0.31203,
+		K: math.Log(3500 / 5066.5),
+		V: 0.31203 * 0.31203,
 	},
 	{
-		K:     math.Log(4000 / 5066.5),
-		ImVol: 0.25041,
+		K: math.Log(4000 / 5066.5),
+		V: 0.25041 * 0.25041,
 	},
 	{
-		K:     math.Log(4500 / 5066.5),
-		ImVol: 0.19897,
+		K: math.Log(4500 / 5066.5),
+		V: 0.19897 * 0.19897,
 	},
 	{
-		K:     math.Log(5000 / 5066.5),
-		ImVol: 0.15795,
+		K: math.Log(5000 / 5066.5),
+		V: 0.15795 * 0.15795,
 	},
 	{
-		K:     math.Log(5500 / 5066.5),
-		ImVol: 0.13803,
+		K: math.Log(5500 / 5066.5),
+		V: 0.13803 * 0.13803,
 	},
 	{
-		K:     math.Log(6000 / 5066.5),
-		ImVol: 0.14575,
+		K: math.Log(6000 / 5066.5),
+		V: 0.14575 * 0.14575,
 	},
 	{
-		K:     math.Log(6400 / 5066.5),
-		ImVol: 0.17007,
+		K: math.Log(6400 / 5066.5),
+		V: 0.17007 * 0.17007,
 	},
 }
 
@@ -190,10 +190,11 @@ func BenchmarkSviVolatility1_GetImVol(b *testing.B) {
 	}
 	s := generateS1()
 	k := math.Log(3500 / 5066.5)
+
 	for i := 0; i < b.N; i++ {
 		s.GetImVol(k, p)
 	}
-	log.Printf("%+v", s.GetImVol(k, p))
+	//log.Printf("%+v", s.GetImVol(k, p))
 }
 
 func TestNorm(t *testing.T) {
@@ -273,32 +274,32 @@ func TestSviVolatility_PyMinimizeSLSQP(t *testing.T) {
 func TestSviVolatility1_PyMinimizeSLSQP(t *testing.T) {
 	marketDataList1 = []*MarketData{
 		{
-			K:     math.Log(30000 / 34940.32),
-			ImVol: 1.076,
+			K: math.Log(30000 / 34940.32),
+			V: 1.076 * 1.076,
 		},
 		{
-			K:     math.Log(32000 / 34940.32),
-			ImVol: 0.966,
+			K: math.Log(32000 / 34940.32),
+			V: 0.966 * 0.966,
 		},
 		{
-			K:     math.Log(34000 / 34940.32),
-			ImVol: 0.905,
+			K: math.Log(34000 / 34940.32),
+			V: 0.905 * 0.905,
 		},
 		{
-			K:     math.Log(36000 / 34940.32),
-			ImVol: 0.824,
+			K: math.Log(36000 / 34940.32),
+			V: 0.824 * 0.824,
 		},
 		{
-			K:     math.Log(38000 / 34940.32),
-			ImVol: 0.868,
+			K: math.Log(38000 / 34940.32),
+			V: 0.868 * 0.868,
 		},
 		{
-			K:     math.Log(40000 / 34940.32),
-			ImVol: 0.804,
+			K: math.Log(40000 / 34940.32),
+			V: 0.804 * 0.804,
 		},
 		{
-			K:     math.Log(45000 / 34940.32),
-			ImVol: 1.211,
+			K: math.Log(45000 / 34940.32),
+			V: 1.211 * 1.211,
 		},
 	}
 	s := NewSviVolatility(0.008789954)
