@@ -73,12 +73,22 @@ func (s *SviVolatility) SetLeftBoundary(k, slope float64) {
 	}
 }
 
+// 移除左边界
+func (s *SviVolatility) RemoveLeftBoundary() {
+	s.leftBoundary = nil
+}
+
 // 设置右边界
 func (s *SviVolatility) SetRightBoundary(k, slope float64) {
 	s.rightBoundary = &Boundary{
 		KValue: k,
 		Slope:  slope,
 	}
+}
+
+// 移除右边界
+func (s *SviVolatility) RemoveRightBoundary() {
+	s.rightBoundary = nil
 }
 
 // 设置超过边界的调用函数
