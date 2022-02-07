@@ -1,4 +1,4 @@
-package svi_volatility
+package volatility
 
 import (
 	/*"github.com/go-nlopt/nlopt"*/
@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-func TestSviVolatility_InitialParam(t *testing.T) {
+func TestVolatility_InitialParam(t *testing.T) {
 	s := generateS()
 	s.InitParams(marketDataList)
-	t.Logf("sviParam: %+v", s.SviParamsOld)
+	t.Logf("Param: %+v", s.ParamsOld)
 
 	s1 := generateS1()
 	s1.InitParams(marketDataList1)
-	t.Logf("sviParam1: %+v", s1.SviParams)
+	t.Logf("Param1: %+v", s1.Params)
 }
 
 var marketDataList = []*MarketDataOld{
@@ -82,14 +82,14 @@ var marketDataList1 = []*MarketData{
 	},
 }
 
-func generateS() *SviVolatilityOld {
-	s := NewSviVolatilityOld(5066.5, 0.00194)
+func generateS() *VolatilityOld {
+	s := NewVolatilityOld(5066.5, 0.00194)
 	return s
 }
 
-func generateS1() *SviVolatility {
+func generateS1() *Volatility {
 	// 5066.5
-	s := NewSviVolatility(0.00194)
+	s := NewVolatility(0.00194)
 	return s
 }
 
@@ -107,39 +107,39 @@ func TestDot(t *testing.T) {
 	log.Printf("sum: %+v", math.Sqrt(sum))
 }
 
-func TestSviVolatility_FVector(t *testing.T) {
+func TestVolatility_FVector(t *testing.T) {
 	s := generateS()
 	s.InitParams(marketDataList)
-	s.FVector(s.xMatrix, s.SviParamsOld)
+	s.FVector(s.xMatrix, s.ParamsOld)
 }
 
-func TestSviVolatility_GradFMatrix(t *testing.T) {
+func TestVolatility_GradFMatrix(t *testing.T) {
 	s := generateS()
 	s.InitParams(marketDataList)
-	ma := s.GradFMatrix(s.xMatrix, s.SviParamsOld)
+	ma := s.GradFMatrix(s.xMatrix, s.ParamsOld)
 	r, _ := ma.Dims()
 	for i := 0; i < r; i++ {
 		log.Printf("ma.Row: %+v", ma.RowView(i))
 	}
 }
 
-func TestSviVolatility_FitVol(t *testing.T) {
+func TestVolatility_FitVol(t *testing.T) {
 	s := generateS()
 	s.InitParams(marketDataList)
-	t.Logf("sviParam: %+v", s.FitVol())
+	t.Logf("Param: %+v", s.FitVol())
 
 	s1 := generateS1()
 	s1.InitParams(marketDataList1)
-	t.Logf("sviParam1: %+v", s1.FitVol())
+	t.Logf("Param1: %+v", s1.FitVol())
 }
 
 // goos: windows
 // goarch: amd64
-// pkg: github.com/charlerive/library/svi_volatility
-// BenchmarkSviVolatility_FitVol
-// BenchmarkSviVolatility_FitVol-12            7077            157725 ns/op
+// pkg: github.com/charlerive/library/volatility
+// BenchmarkVolatility_FitVol
+// BenchmarkVolatility_FitVol-12            7077            157725 ns/op
 // PASS
-func BenchmarkSviVolatility_FitVol(b *testing.B) {
+func BenchmarkVolatility_FitVol(b *testing.B) {
 	s := generateS()
 	s.InitParams(marketDataList)
 	b.ResetTimer()
@@ -148,7 +148,7 @@ func BenchmarkSviVolatility_FitVol(b *testing.B) {
 	}
 }
 
-func BenchmarkSviVolatility1_FitVol(b *testing.B) {
+func BenchmarkVolatility1_FitVol(b *testing.B) {
 	s1 := generateS1()
 	s1.InitParams(marketDataList1)
 	b.ResetTimer()
@@ -159,13 +159,13 @@ func BenchmarkSviVolatility1_FitVol(b *testing.B) {
 
 // goos: windows
 // goarch: amd64
-// pkg: github.com/charlerive/library/svi_volatility
-// BenchmarkSviVolatility_FitVol
-// BenchmarkSviVolatility_FitVol-12            57229791            20.7 ns/op
+// pkg: github.com/charlerive/library/volatility
+// BenchmarkVolatility_FitVol
+// BenchmarkVolatility_FitVol-12            57229791            20.7 ns/op
 // PASS
-func BenchmarkSviVolatility_GetImVol(b *testing.B) {
+func BenchmarkVolatility_GetImVol(b *testing.B) {
 	b.ResetTimer()
-	p := &SviParamsOld{
+	p := &ParamsOld{
 		A:   -0.00011482356495239037,
 		B:   0.0005530503392993171,
 		C:   0.2740588979212063,
@@ -179,9 +179,9 @@ func BenchmarkSviVolatility_GetImVol(b *testing.B) {
 	log.Printf("%+v", s.GetImVol(3500, p))
 }
 
-func BenchmarkSviVolatility1_GetImVol(b *testing.B) {
+func BenchmarkVolatility1_GetImVol(b *testing.B) {
 	b.ResetTimer()
-	p := &SviParams{
+	p := &Params{
 		A:   -0.00011482356495239037,
 		B:   0.0005530503392993171,
 		C:   0.2740588979212063,
@@ -231,7 +231,7 @@ func TestLeastSquares(t *testing.T) {
 	}
 }
 
-func TestSviVolatility_PyMinimizeSLSQP(t *testing.T) {
+func TestVolatility_PyMinimizeSLSQP(t *testing.T) {
 	marketDataList = []*MarketDataOld{
 		{
 			StrikePrice: 30000,
@@ -262,7 +262,7 @@ func TestSviVolatility_PyMinimizeSLSQP(t *testing.T) {
 			ImVol:       1.211,
 		},
 	}
-	s := NewSviVolatilityOld(34940.32, 0.008789954)
+	s := NewVolatilityOld(34940.32, 0.008789954)
 	param, err := s.PyMinimizeSLSQP(marketDataList)
 	if err != nil {
 		t.Errorf("s.PyMinimizeSLSQP fail. err: %s", err)
@@ -271,7 +271,7 @@ func TestSviVolatility_PyMinimizeSLSQP(t *testing.T) {
 	t.Logf("s.PyMinimizeSLSQP success. param: %+v", param)
 }
 
-func TestSviVolatility1_PyMinimizeSLSQP(t *testing.T) {
+func TestVolatility1_PyMinimizeSLSQP(t *testing.T) {
 	marketDataList1 = []*MarketData{
 		{
 			K: math.Log(30000 / 34940.32),
@@ -302,7 +302,7 @@ func TestSviVolatility1_PyMinimizeSLSQP(t *testing.T) {
 			V: 1.211 * 1.211,
 		},
 	}
-	s := NewSviVolatility(0.008789954)
+	s := NewVolatility(0.008789954)
 	param, err := s.PyMinimizeSLSQP(marketDataList1)
 	if err != nil {
 		t.Errorf("s.PyMinimizeSLSQP fail. err: %s", err)

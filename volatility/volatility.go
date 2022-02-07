@@ -1,4 +1,4 @@
-package svi_volatility
+package volatility
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-type SviParamsOld struct {
+type Params struct {
 	A   float64 // 方差大小
 	B   float64 // 渐近线夹角
 	C   float64 // 平滑度
@@ -21,8 +21,8 @@ type SviParamsOld struct {
 	Eta float64 // 平移
 }
 
-func (s *SviParamsOld) Copy() *SviParamsOld {
-	return &SviParamsOld{
+func (s *Params) Copy() *Params {
+	return &Params{
 		A:   s.A,
 		B:   s.B,
 		C:   s.C,
@@ -31,57 +31,103 @@ func (s *SviParamsOld) Copy() *SviParamsOld {
 	}
 }
 
-type MarketDataOld struct {
-	StrikePrice float64
-	ImVol       float64
+type MarketData struct {
+	K float64 //math.Log(StrikePrice / ForwardPrice)
+	V float64 //imVol*imVol
 }
 
-type SviVolatilityOld struct {
-	*SviParamsOld
-	MarketDataList []*MarketDataOld
+type Boundary struct {
+	KValue float64
+	Slope  float64
+}
+
+type Volatility struct {
+	*Params
+	leftBoundary   *Boundary
+	rightBoundary  *Boundary
+	boundaryFunc   func(k float64, b *Boundary, p *Params) float64
+	MarketDataList []*MarketData
 	xMatrix        *mat.VecDense
 	yMatrix        *mat.VecDense
-	ForwardPrice   float64 // 远期价格
 	T              float64 // （期权到期日-当前时间）/365天
-	kMap           map[float64]float64
 }
 
-func NewSviVolatilityOld(ForwardPrice float64, T float64) *SviVolatilityOld {
-	s := &SviVolatilityOld{
-		ForwardPrice: ForwardPrice,
-		T:            T,
+func NewVolatility(T float64) *Volatility {
+	s := &Volatility{
+		T: T,
+	}
+	s.boundaryFunc = func(k float64, b *Boundary, p *Params) float64 {
+		if s.Params == nil {
+			return 0
+		}
+		return math.Sqrt(math.Abs(s.GetVariance(b.KValue, p)/s.T + (k-b.KValue)*b.Slope))
 	}
 	return s
 }
 
+// 设置左边界
+func (s *Volatility) SetLeftBoundary(k, slope float64) {
+	s.leftBoundary = &Boundary{
+		KValue: k,
+		Slope:  slope,
+	}
+}
+
+// 移除左边界
+func (s *Volatility) RemoveLeftBoundary() {
+	s.leftBoundary = nil
+}
+
+// 设置右边界
+func (s *Volatility) SetRightBoundary(k, slope float64) {
+	s.rightBoundary = &Boundary{
+		KValue: k,
+		Slope:  slope,
+	}
+}
+
+// 移除右边界
+func (s *Volatility) RemoveRightBoundary() {
+	s.rightBoundary = nil
+}
+
+// 设置超过边界的调用函数
+func (s *Volatility) SetBoundaryFunc(f func(k float64, b *Boundary, p *Params) float64) {
+	s.boundaryFunc = f
+}
+
 // 曲线拟合返回参数
-func (s *SviVolatilityOld) FitVol() *SviParamsOld {
+func (s *Volatility) FitVol() *Params {
 	// prepare to call the Levenberg-Marquardt method
 	if s.A == 0 && s.B == 0 && s.C == 0 && s.Eta == 0 {
-		return s.SviParamsOld
+		return s.Params
 	}
-	return s.LMFit(s.xMatrix, s.yMatrix, s.SviParamsOld)
+	return s.LMFit(s.xMatrix, s.yMatrix, s.Params)
 }
 
 // 根据参数和行权价格找到波动率
-func (s *SviVolatilityOld) GetImVol(strikePrice float64, p *SviParamsOld) float64 {
-	kM := math.Log(strikePrice/s.ForwardPrice) - p.Eta
-	return math.Sqrt(math.Abs(VarianceOld(kM, p.A, p.B, p.C, p.Rho) / s.T))
+func (s *Volatility) GetImVol(k float64, p *Params) float64 {
+	if s.leftBoundary != nil && k < s.leftBoundary.KValue {
+		return s.boundaryFunc(k, s.leftBoundary, p)
+	} else if s.rightBoundary != nil && k > s.rightBoundary.KValue {
+		return s.boundaryFunc(k, s.rightBoundary, p)
+	}
+	kM := k - p.Eta
+	return math.Sqrt(math.Abs(Variance(kM, p.A, p.B, p.C, p.Rho) / s.T))
 }
 
-func (s *SviVolatilityOld) GetVariance(strikePrice float64, p *SviParamsOld) float64 {
-	kM := math.Log(strikePrice/s.ForwardPrice) - p.Eta
-	return VarianceOld(kM, p.A, p.B, p.C, p.Rho)
+func (s *Volatility) GetVariance(k float64, p *Params) float64 {
+	kM := k - p.Eta
+	return Variance(kM, p.A, p.B, p.C, p.Rho)
 }
 
-func VarianceOld(kM, a, b, c, rho float64) float64 {
+func Variance(kM, a, b, c, rho float64) float64 {
 	return a + b*(rho*kM+math.Sqrt(kM*kM+c*c))
 }
 
-func (s *SviVolatilityOld) InitParams(marketDataList []*MarketDataOld) {
+func (s *Volatility) InitParams(marketDataList []*MarketData) {
 
-	s.SviParamsOld = &SviParamsOld{}
-	s.kMap = make(map[float64]float64)
+	s.Params = &Params{}
 	s.MarketDataList = marketDataList
 	s.xMatrix = mat.NewVecDense(len(marketDataList), nil)
 	s.yMatrix = mat.NewVecDense(len(marketDataList), nil)
@@ -90,12 +136,10 @@ func (s *SviVolatilityOld) InitParams(marketDataList []*MarketDataOld) {
 	// 方差
 	varianceArr := make([]float64, 0)
 	for i, marketData := range s.MarketDataList {
-		s.xMatrix.SetVec(i, marketData.StrikePrice)
-		s.yMatrix.SetVec(i, marketData.ImVol)
-		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
-		s.kMap[marketData.StrikePrice] = k
-		moneynessArr = append(moneynessArr, k)
-		varianceArr = append(varianceArr, marketData.ImVol*marketData.ImVol*s.T)
+		s.xMatrix.SetVec(i, marketData.K)
+		s.yMatrix.SetVec(i, marketData.V*s.T)
+		moneynessArr = append(moneynessArr, marketData.K)
+		varianceArr = append(varianceArr, marketData.V*s.T)
 	}
 
 	lx1, lx2, ly1, ly2, rx1, rx2, ry1, ry2 := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -164,21 +208,21 @@ func (s *SviVolatilityOld) InitParams(marketDataList []*MarketDataOld) {
 }
 
 const (
-	Nu0Old           = 1000
-	Res0Old          = 1e9
-	MaxIterationsOld = 25
-	ToleranceOld     = 1e-8
-	ParamsLenOld     = 5
+	Nu0           = 1000
+	Res0          = 1e9
+	MaxIterations = 25
+	Tolerance     = 1e-8
+	ParamsLen     = 5
 )
 
 // Levenberg-Marquardt 最小二乘法
-func (s *SviVolatilityOld) LMFit(x, y *mat.VecDense, pStart *SviParamsOld) *SviParamsOld {
-	resZero := Res0Old
-	nu := float64(Nu0Old)
+func (s *Volatility) LMFit(x, y *mat.VecDense, pStart *Params) *Params {
+	resZero := Res0
+	nu := float64(Nu0)
 	dataLen := x.Len()
 	p := pStart.Copy()
 	rTranspose := mat.NewDense(1, dataLen, nil)
-	for i := 0; i < MaxIterationsOld; i++ {
+	for i := 0; i < MaxIterations; i++ {
 		fv := s.FVector(x, p)
 		for j := 0; j < dataLen; j++ {
 			rTranspose.Set(0, j, y.At(j, 0)-fv.AtVec(j))
@@ -196,7 +240,7 @@ func (s *SviVolatilityOld) LMFit(x, y *mat.VecDense, pStart *SviParamsOld) *SviP
 		alpha := &mat.Dense{}
 		alpha.Mul(tmpGradFMatrix.T(), tmpGradFMatrix)
 
-		for j := 0; j < ParamsLenOld; j++ {
+		for j := 0; j < ParamsLen; j++ {
 			alpha.Set(j, j, alpha.At(j, j)*(1+1/nu))
 		}
 
@@ -227,7 +271,7 @@ func (s *SviVolatilityOld) LMFit(x, y *mat.VecDense, pStart *SviParamsOld) *SviP
 			p = pNew
 		}
 
-		if math.Abs(res-resZero) < ToleranceOld {
+		if math.Abs(res-resZero) < Tolerance {
 			break
 		}
 		resZero = res
@@ -251,7 +295,7 @@ func (s *SviVolatilityOld) LMFit(x, y *mat.VecDense, pStart *SviParamsOld) *SviP
 	return p
 }
 
-func (s *SviVolatilityOld) FVector(x *mat.VecDense, p *SviParamsOld) *mat.VecDense {
+func (s *Volatility) FVector(x *mat.VecDense, p *Params) *mat.VecDense {
 	dataLen := x.Len()
 	outline := mat.NewVecDense(dataLen, nil)
 	for i := 0; i < x.Len(); i++ {
@@ -260,32 +304,30 @@ func (s *SviVolatilityOld) FVector(x *mat.VecDense, p *SviParamsOld) *mat.VecDen
 	return mat.VecDenseCopyOf(outline.TVec())
 }
 
-func (s *SviVolatilityOld) F(strikePrice float64, p *SviParamsOld) float64 {
-	k := s.kMap[strikePrice]
+func (s *Volatility) F(k float64, p *Params) float64 {
 	kM := k - p.Eta
 	return math.Sqrt(math.Abs((p.A + p.B*(p.Rho*kM+math.Sqrt(kM*kM+p.C*p.C))) / s.T))
 }
 
-func (s *SviVolatilityOld) GradFMatrix(x *mat.VecDense, p *SviParamsOld) *mat.Dense {
-	outMatrixTranspose := mat.NewDense(ParamsLenOld, x.Len(), nil)
+func (s *Volatility) GradFMatrix(x *mat.VecDense, p *Params) *mat.Dense {
+	outMatrixTranspose := mat.NewDense(ParamsLen, x.Len(), nil)
 	for i := 0; i < x.Len(); i++ {
 		tmpGradFI := s.GradF(x.AtVec(i), p)
-		for j := 0; j < ParamsLenOld; j++ {
+		for j := 0; j < ParamsLen; j++ {
 			outMatrixTranspose.Set(j, i, tmpGradFI[j])
 		}
 	}
 	return mat.DenseCopyOf(outMatrixTranspose.T())
 }
 
-func (s *SviVolatilityOld) GradF(strikePrice float64, p *SviParamsOld) []float64 {
-	res := make([]float64, ParamsLenOld)
-	k := s.kMap[strikePrice]
+func (s *Volatility) GradF(k float64, p *Params) []float64 {
+	res := make([]float64, ParamsLen)
 	kM := k - p.Eta
-	ff := s.F(strikePrice, p)
+	ff := s.F(k, p)
 	tmp := 1 / (2 * ff * s.T)
 	tmpB := tmp * p.B
-	tmp1 := VarianceOld(kM, 0, 1, p.C, p.Rho)
-	tmp2 := VarianceOld(kM, 0, 1, p.C, 0)
+	tmp1 := Variance(kM, 0, 1, p.C, p.Rho)
+	tmp2 := Variance(kM, 0, 1, p.C, 0)
 
 	res[0] = tmp
 	res[1] = tmp * tmp2
@@ -298,16 +340,14 @@ func (s *SviVolatilityOld) GradF(strikePrice float64, p *SviParamsOld) []float64
 
 // 调用python的scipy实现slsqp
 // need install python3,numpy,scipy
-func (s *SviVolatilityOld) PyMinimizeSLSQP(marketDataList []*MarketDataOld) (*SviParamsOld, error) {
+func (s *Volatility) PyMinimizeSLSQP(marketDataList []*MarketData) (*Params, error) {
 	kBuf, vBuf := bytes.Buffer{}, bytes.Buffer{}
 	for _, marketData := range marketDataList {
-		k := math.Log(marketData.StrikePrice / s.ForwardPrice)
-		v := marketData.ImVol * marketData.ImVol * s.T
 		kBuf.WriteString(",")
-		kBuf.WriteString(strconv.FormatFloat(k, 'f', -1, 64))
+		kBuf.WriteString(strconv.FormatFloat(marketData.K, 'f', -1, 64))
 
 		vBuf.WriteString(",")
-		vBuf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
+		vBuf.WriteString(strconv.FormatFloat(marketData.V*s.T, 'f', -1, 64))
 	}
 
 	command, args := "python3", []string{"minimize_slsqp.py", "-k " + kBuf.String()[1:], "-v " + vBuf.String()[1:]}
@@ -333,13 +373,13 @@ func (s *SviVolatilityOld) PyMinimizeSLSQP(marketDataList []*MarketDataOld) (*Sv
 		return nil, fmt.Errorf("exec.Command fail, err: %s, out: %s", err, out.String())
 	}
 
-	s.SviParamsOld = &SviParamsOld{}
+	s.Params = &Params{}
 	s.A, _ = strconv.ParseFloat(res[0], 64)
 	s.B, _ = strconv.ParseFloat(res[1], 64)
 	s.C, _ = strconv.ParseFloat(res[2], 64)
 	s.Rho, _ = strconv.ParseFloat(res[3], 64)
 	s.Eta, _ = strconv.ParseFloat(res[4], 64)
-	return s.SviParamsOld, nil
+	return s.Params, nil
 }
 
 // TODO optimize with nlopt-slsqp function in cgo
