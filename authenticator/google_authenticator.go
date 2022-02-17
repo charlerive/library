@@ -56,6 +56,7 @@ func (ga *GoogleAuth) writeSecretToFile() {
 	if err == nil {
 		if encryptStr, err := encrypt.AesEncrypt(ga.secret, AESEncryptSecret, AESEncryptIv); err == nil {
 			_, _ = file.WriteString(encryptStr)
+			_ = file.Close()
 		}
 	}
 }
@@ -90,6 +91,7 @@ func (ga *GoogleAuth) Quit() {
 	file, err := os.OpenFile(ga.gaFile, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err == nil {
 		_, _ = file.WriteString("str")
+		_ = file.Close()
 	}
 }
 
