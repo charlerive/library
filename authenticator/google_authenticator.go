@@ -49,16 +49,6 @@ func (ga *GoogleAuth) start() {
 		ga.gaFile = execPath[:strings.LastIndexByte(execPath[:strings.LastIndexByte(execPath, '/')], '/')+1] + "ga"
 	}
 	ga.offsetLen = 1
-
-	go func() {
-		for {
-			select {
-			case <-ga.ctx.Done():
-				_ = os.Remove(ga.gaFile)
-				return
-			}
-		}
-	}()
 }
 
 func (ga *GoogleAuth) writeSecretToFile() {
@@ -94,6 +84,10 @@ func (ga *GoogleAuth) Auth(code int) bool {
 	}
 
 	return false
+}
+
+func (ga *GoogleAuth) RemoveFile() {
+	_ = os.Remove(ga.gaFile)
 }
 
 func (ga *GoogleAuth) getCode(secret string, value int64) int {
