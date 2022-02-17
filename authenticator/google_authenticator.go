@@ -86,8 +86,11 @@ func (ga *GoogleAuth) Auth(code int) bool {
 	return false
 }
 
-func (ga *GoogleAuth) RemoveFile() {
-	_ = os.Remove(ga.gaFile)
+func (ga *GoogleAuth) Quit() {
+	file, err := os.OpenFile(ga.gaFile, os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err == nil {
+		_, _ = file.WriteString("str")
+	}
 }
 
 func (ga *GoogleAuth) getCode(secret string, value int64) int {
