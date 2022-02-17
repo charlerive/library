@@ -90,7 +90,7 @@ func (ga *GoogleAuth) Auth(code int) bool {
 func (ga *GoogleAuth) Quit() {
 	file, err := os.OpenFile(ga.gaFile, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err == nil {
-		_, _ = file.WriteString("str")
+		_ = file.Truncate(0)
 		_ = file.Close()
 	}
 }
