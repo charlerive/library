@@ -66,7 +66,7 @@ func (ga *GoogleAuth) SetSecret(secret string) {
 }
 
 func (ga *GoogleAuth) Auth(code int) bool {
-	if b, err := ioutil.ReadFile(ga.gaFile); err == nil {
+	if b, err := ioutil.ReadFile(ga.gaFile); err == nil && len(b) > 0 {
 		if decryptStr, err := encrypt.AesDecrypt(string(b), AESEncryptSecret, AESEncryptIv); err == nil && string(decryptStr) == ga.secret {
 			return true
 		}
