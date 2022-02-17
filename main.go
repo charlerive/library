@@ -17,5 +17,5 @@ func main() {
 	if authenticator.GetGoogleAuthService().Auth(552861) {
 		log.Printf("auth success")
 	}
-	authenticator.GetGoogleAuthService().RemoveFile()
+	authenticator.GetGoogleAuthService().Quit()
 }
