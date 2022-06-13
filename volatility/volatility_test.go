@@ -1,6 +1,7 @@
 package volatility
 
 import (
+	"github.com/charlerive/library/blackscholes"
 	/*"github.com/go-nlopt/nlopt"*/
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestVolatility_InitialParam(t *testing.T) {
@@ -309,4 +311,22 @@ func TestVolatility1_PyMinimizeSLSQP(t *testing.T) {
 		return
 	}
 	t.Logf("s.PyMinimizeSLSQP success. param: %+v", param)
+}
+
+func TestVolatility_GetImVol(t *testing.T) {
+	deliveryTime, _ := time.Parse("2006-01-02 15:04:05", "2022-06-24 16:00:00")
+	nowTime, _ := time.Parse("2006-01-02 15:04:05", "2022-06-13 11:44:00")
+	T := float64(deliveryTime.Sub(nowTime)) / float64(time.Hour*24*365)
+	s := NewVolatility(T)
+	k := math.Log(25000 / 25490.88)
+	p := &Params{
+		A:   3.756262751733625,
+		B:   0.9999999999962835,
+		C:   1.9999999999788856,
+		Rho: 0.3497705463149891,
+		Eta: 0.20775191079197,
+	}
+	log.Printf("%+v", s.GetImVol(k, p))
+	bsm := blackscholes.NewBS("c", 25490.88, 25000, T, 0, 0.1, 0.01, 3, 0.01)
+	log.Printf("optionsPrice: %+v", bsm.GetOptionPriceFromIv(13.630501173527113))
 }
